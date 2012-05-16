@@ -134,7 +134,7 @@ describe WashOut do
     end.to_hash[:check_answer_response][:value].should == true
   end
 
-  it "should report SOAP error if wsse auth is wrong" do
+  it "should report SOAP error if wsse auth is wrong or missing" do
     WashOut::Engine.wsse_auth = true
     WashOut::Engine.wsse_user = "gorilla"
     WashOut::Engine.wsse_pass = "secret"
@@ -146,6 +146,7 @@ describe WashOut do
       end
     end
 
+    # correct auth
     lambda {
       client.request(:check_auth) do
         wsse.username = "gorilla"
@@ -153,10 +154,17 @@ describe WashOut do
         soap.body = { :value => 42 }
       end
     }.should_not raise_exception
+    # wrong auth
     lambda {
       client.request(:check_auth) do
         wsse.username = "chimpanzee"
         wsse.password = "secret"
+        soap.body = { :value => 42 }
+      end
+    }.should raise_exception(Savon::SOAP::Fault)
+    # no auth
+    lambda {
+      client.request(:check_auth) do
         soap.body = { :value => 42 }
       end
     }.should raise_exception(Savon::SOAP::Fault)
