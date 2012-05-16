@@ -119,6 +119,68 @@ describe WashOut do
     end.to_hash[:check_answer_response][:value].should == false
   end
 
+  it "should answer to request with wsse auth header" do
+    mock_controller do
+      soap_action "checkAnswer", :args => :integer, :return => :boolean, :to => 'check_answer'
+      def check_answer
+        render :soap => (params[:value] == 42)
+      end
+    end
+
+    client.request(:check_answer) do
+      wsse.username = "gorilla"
+      wsse.password = "secret"
+      soap.body = { :value => 42 }
+    end.to_hash[:check_answer_response][:value].should == true
+  end
+
+  it "should report SOAP error if wsse auth is wrong" do
+    WashOut::Engine.wsse_auth = true
+    WashOut::Engine.wsse_user = "gorilla"
+    WashOut::Engine.wsse_pass = "secret"
+
+    mock_controller do
+      soap_action "checkAuth", :args => :integer, :return => :boolean, :to => 'check_auth'
+      def check_auth
+        render :soap => (params[:value] == 42)
+      end
+    end
+
+    lambda {
+      client.request(:check_auth) do
+        wsse.username = "gorilla"
+        wsse.password = "secret"
+        soap.body = { :value => 42 }
+      end
+    }.should_not raise_exception
+    lambda {
+      client.request(:check_auth) do
+        wsse.username = "chimpanzee"
+        wsse.password = "secret"
+        soap.body = { :value => 42 }
+      end
+    }.should raise_exception(Savon::SOAP::Fault)
+  end
+
+  it "should not report SOAP error if wsse auth is not required" do
+    WashOut::Engine.wsse_auth = false
+
+    mock_controller do
+      soap_action "checkAuth", :args => :integer, :return => :boolean, :to => 'check_auth'
+      def check_auth
+        render :soap => (params[:value] == 42)
+      end
+    end
+
+    lambda {
+      client.request(:check_auth) do
+        wsse.username = "chimpanzee"
+        wsse.password = "secret"
+        soap.body = { :value => 42 }
+      end
+    }.should_not raise_exception
+  end
+
   it "should handle snakecase option properly" do
     WashOut::Engine.snakecase_input = false
     WashOut::Engine.camelize_wsdl   = false

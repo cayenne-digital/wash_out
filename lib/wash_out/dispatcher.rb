@@ -34,6 +34,23 @@ module WashOut
       action_spec = self.class.soap_actions[soap_action]
 
       xml_data = @_params.values_at(:envelope, :Envelope).compact.first
+
+      check_wsse_auth = lambda{|xml_data|
+        header = xml_data.values_at(:header, :Header).compact.first
+        token = header[:security][:username_token]
+
+        expected_user = WashOut::Engine.wsse_user
+        expected_pass = WashOut::Engine.wsse_pass
+
+        unless (expected_user == token[:username] &&
+                expected_pass == token[:password])
+          raise WashOut::Dispatcher::SOAPError,
+                "Unauthorized"
+        end
+      }
+
+      if WashOut::Engine.wsse_auth then check_wsse_auth.call(xml_data) end
+
       xml_data = xml_data.values_at(:body, :Body).compact.first
       xml_data = xml_data.values_at(soap_action.underscore.to_sym, soap_action.to_sym).compact.first || {}
 
