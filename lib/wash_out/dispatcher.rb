@@ -33,21 +33,29 @@ module WashOut
       soap_action = request.env['wash_out.soap_action']
       action_spec = self.class.soap_actions[soap_action]
 
-      xml_data = @_params.values_at(:envelope, :Envelope).compact.first
-
       check_wsse_auth = lambda{|xml_data|
-        header = xml_data.values_at(:header, :Header).compact.first
-        token = header[:security][:username_token]
+        begin
+          header = xml_data.values_at(:header, :Header).compact.first
+          security = header.values_at(:security, :Security).compact.first
+          token = security.values_at(:username_token, :UsernameToken).compact.first
+          user = token.values_at(:username, :Username).compact.first
+          pass = token.values_at(:password, :Password).compact.first
+        rescue
+          raise WashOut::Dispatcher::SOAPError,
+                # "Missing Username Token"
+                header.inspect
+        end
 
         expected_user = WashOut::Engine.wsse_user
         expected_pass = WashOut::Engine.wsse_pass
 
-        unless (expected_user == token[:username] &&
-                expected_pass == token[:password])
+        unless (expected_user == user && expected_pass == pass)
           raise WashOut::Dispatcher::SOAPError,
                 "Unauthorized"
         end
       }
+
+      xml_data = @_params.values_at(:envelope, :Envelope).compact.first
 
       if WashOut::Engine.wsse_auth then check_wsse_auth.call(xml_data) end
 
