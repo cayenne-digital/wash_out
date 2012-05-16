@@ -42,8 +42,7 @@ module WashOut
           pass = token.values_at(:password, :Password).compact.first
         rescue
           raise WashOut::Dispatcher::SOAPError,
-                # "Missing Username Token"
-                header.inspect
+                "Missing Username Token"
         end
 
         expected_user = WashOut::Engine.wsse_user
