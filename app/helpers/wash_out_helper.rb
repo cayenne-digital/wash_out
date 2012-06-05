@@ -5,7 +5,12 @@ module WashOutHelper
 
       if !param.struct?
         if !param.multiplied
-          xml.tag! tag_name, param.value, "xsi:type" => param.namespaced_type
+          if param.value.nil?
+            xml.tag! tag_name, param.value, "xsi:type" => param.namespaced_type,
+                                            "xsi:nil" => "true"
+          else
+            xml.tag! tag_name, param.value, "xsi:type" => param.namespaced_type
+          end
         else
           param.value = [] unless param.value.is_a?(Array)
           param.value.each do |v|
